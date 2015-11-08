@@ -1,0 +1,7 @@
+*.obj
+build/ 
+rapidjson/
+*.csv
+*.o
+testD
+*.a
