@@ -1,5 +1,6 @@
 https=require('https');
-var mrkRisk=require('../../cpp/NodeWrapper/build/Release/MarketRiskWrapper');
+var mrkRisk=require('./build/Release/MarketRiskWrapper');
+//TODO: adjust the swap rate curve so that it reflects the actual zero coupon curve
 apiStrings=[
   {
     description:"Most Current 1 month LIBOR",
@@ -58,10 +59,14 @@ apiStrings=[
   }
 ];
 
+
+
+var portfolio=[];
 var YieldCurveUnExtrapolated=Array(apiStrings.length);
 var historicalResults="";
 var retreivedHistoricalResults=false;
 var retreivedYieldResults=false;
+var retreivedPortfolio=false;
 var j={"j":0};
 
 var callback = function(response) {
@@ -96,8 +101,8 @@ var clb=function(response, i, n, jObj, desc, daysPlus){
   });
 }
 function sendDataToCPP(){
-  if(retreivedYieldResults&&retreivedHistoricalResults){
-    mrkRisk.MarketRiskWrapper(JSON.stringify(YieldCurveUnExtrapolated), historicalResults);
+  if(retreivedYieldResults&&retreivedHistoricalResults&&retreivedPortfolio){
+    console.log(JSON.parse(mrkRisk.MarketRiskWrapper(JSON.stringify(YieldCurveUnExtrapolated), historicalResults, JSON.stringify(portfolio))));
   }
 }
 var runFunc=function(arrayUrl, i){
@@ -109,5 +114,34 @@ var runFunc=function(arrayUrl, i){
     runFunc(arrayUrl, i+1);
   }
 }
+var getPortfolio=function(numAssets){
+  var currdate=new Date();
+  Date.prototype.addDays = function(days){
+      var dat = new Date(this.valueOf());
+      dat.setDate(dat.getDate() + days);
+      return dat;
+  }
+  Date.prototype.yyyymmdd = function() {
+     var yyyy = this.getFullYear().toString();
+     var mm = (this.getMonth()+1).toString(); // getMonth() is zero-based
+     var dd  = this.getDate().toString();
+     return yyyy + "-"+(mm[1]?mm:"0"+mm[0])+ "-" + (dd[1]?dd:"0"+dd[0]); // padding
+  };
+  //console.log(currdate.addDays(1).yyyymmdd());
+  for(var i=0; i<numAssets/4; i++){ //create a fake portfolio
+    portfolio.push({maturity:currdate.addDays(i+1).yyyymmdd(), type:"bond"});
+  }
+  for(var i=0; i<numAssets/4; i++){ //create a fake portfolio
+    portfolio.push({maturity:currdate.addDays(i+1).yyyymmdd(), strike:.03, tenor:.25, type:"caplet"});
+  }
+  for(var i=0; i<numAssets/4; i++){ //create a fake portfolio
+    portfolio.push({maturity:currdate.addDays(i+1).yyyymmdd(), strike:.03, tenor:.25, underlyingMaturity:currdate.addDays(i+721).yyyymmdd(), type:"swaption"});
+  }
+  for(var i=0; i<numAssets/4; i++){ //create a fake portfolio
+    portfolio.push({maturity:currdate.addDays(i+1).yyyymmdd(), strike:.99, underlyingMaturity:currdate.addDays(i+91).yyyymmdd(), type:"call"});
+  }
+  retreivedPortfolio=true;
+}
 runFunc(apiStrings, 0);
 https.get("https://api.stlouisfed.org/fred/series/observations?series_id=USD1WKD156N&api_key=6b75e4bc06a6ed991a7a9cc64d70c3fa&file_type=json", callback); //1 week libor history
+getPortfolio(3000);
