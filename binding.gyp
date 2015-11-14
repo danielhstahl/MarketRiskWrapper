@@ -17,7 +17,7 @@
         "-lVasicek", "-lYieldSpline", "-lBlackScholes", "-lMC", "-lSwap", "-lSpline", "-L/home/daniel/Documents/cpp/marketRisk",
         "-L/home/daniel/Documents/cpp/eigen"
       ],
-      "cflags": [ "-std=c++11", "-fPIC", "-O3"]#, "-fopenmp" ]
+      "cflags": [ "-std=c++11", "-fPIC", "-O3", "-fexceptions", "-H" , "-g",  "-c"]#, "-fopenmp" ]
     }
   ]
 }

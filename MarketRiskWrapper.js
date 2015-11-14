@@ -102,7 +102,8 @@ var clb=function(response, i, n, jObj, desc, daysPlus){
 }
 function sendDataToCPP(){
   if(retreivedYieldResults&&retreivedHistoricalResults&&retreivedPortfolio){
-    console.log(JSON.parse(mrkRisk.MarketRiskWrapper(JSON.stringify(YieldCurveUnExtrapolated), historicalResults, JSON.stringify(portfolio))));
+    var result=mrkRisk.MarketRiskWrapper(JSON.stringify(YieldCurveUnExtrapolated), historicalResults, JSON.stringify(portfolio));
+    console.log(result);
   }
 }
 var runFunc=function(arrayUrl, i){

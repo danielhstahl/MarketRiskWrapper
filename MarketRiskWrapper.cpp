@@ -8,7 +8,7 @@
 #include "YieldSpline.h"
 #include "MarketData.h"
 #include "Date.h"
-#include "MC.h"
+#include "MC.hpp"
 #include "SimulNorm.h"
 #include "ComputePortfolio.h"
 using v8::FunctionCallbackInfo;
@@ -16,11 +16,49 @@ using v8::Exception;
 using v8::Isolate;
 using v8::Local;
 using v8::Object;
+using v8::Number;
 using v8::String;
 using v8::Value;
 
 typedef Vasicek<YieldSpline> VasicekEngine;
 
+
+struct Work {
+  uv_work_t  request;
+  Persistent<Function> callback;
+
+  std::vector<SpotValue> * historical;
+  std::vector<SpotValue> * yield;
+};
+
+void CalculateResultsAsync(const FunctionCallbackInfo<Value>&args) {
+    Isolate* isolate = args.GetIsolate();
+
+    Work * work = new Work();
+    work->request.data = work;
+
+    Local<Function> callback = Local<Function>::Cast(args[1]);
+    work->callback.Reset(isolate, callback);
+
+    // kick of the worker thread
+    uv_queue_work(uv_default_loop(),&work->request,
+        WorkAsync,WorkAsyncComplete);
+
+    args.GetReturnValue().Set(Undefined(isolate));
+
+
+
+    work->locations = new std::vector<location>();
+    Local<Array> input = Local<Array>::Cast(args[0]);
+    unsigned int num_locations = input->Length();
+    for (unsigned int i = 0; i < num_locations; i++) {
+      work->locations->push_back(
+          unpack_location(isolate, Local<Object>::Cast(input->Get(i)))
+      );
+    }
+
+
+}
 void Method(const FunctionCallbackInfo<Value>& args) {
   Isolate* isolate = args.GetIsolate();
 //args.GetReturnValue().Set(String::NewFromUtf8(isolate, "world"));
@@ -160,18 +198,12 @@ void Method(const FunctionCallbackInfo<Value>& args) {
   auto end=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()-start);
 	std::cout<<"Time it took: "<<end.count()/1000.0<<std::endl;
 
+  Local<Object> obj = Object::New(isolate);
+  obj->Set(String::NewFromUtf8(isolate, "VaR"), Number::New(isolate, mc.getVaR(.99)));
+  obj->Set(String::NewFromUtf8(isolate, "Error"), Number::New(isolate, mc.getError()));
 
-  std::string valToReturn("{VaR:");
-  valToReturn+=std::to_string(mc.getVaR(.99));
-  valToReturn+=", Error:";
-  valToReturn+=std::to_string(mc.getError());
-  valToReturn+="}";
-  std::cout<<"This is VaR: "<<mc.getVaR(.99)<<std::endl;
-  std::cout<<"This is estimate: "<<mc.getEstimate()<<std::endl;
-  std::cout<<"This is error: "<<mc.getError()<<std::endl;
-  //std::cout<<"bond call: "<<vsk.Bond_Call(.0238855, .02777778, .99, .35, .1)<<std::endl;
-  //std::cout<<std::to_string(mc.getVaR(.99))<<std::endl;
-  args.GetReturnValue().Set(String::NewFromUtf8(isolate, valToReturn.c_str()));
+//  args.GetReturnValue().Set(String::NewFromUtf8(isolate, obj));
+  args.GetReturnValue().Set(obj);
 }
 
 void init(Local<Object> exports) {
